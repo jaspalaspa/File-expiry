@@ -1,5 +1,10 @@
 {
-    "example.pdf": {
-        "expiry": "2025-08-16"
-    }
+  "X7A9B2": {
+    "expiry": "2025-08-30",
+    "user_id": "all"
+  },
+  "K3M4Q9": {
+    "expiry": "2025-09-10",
+    "user_id": "12345"
+  }
 }
