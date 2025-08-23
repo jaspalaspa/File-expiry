@@ -1,48 +1,42 @@
 from flask import Flask, request, jsonify
+import json
 from datetime import datetime
-import json, os
 
 app = Flask(__name__)
 
-DATA_FILE = "files.json"
+# Load codes from files.json
+def load_codes():
+    with open("files.json", "r") as f:
+        return json.load(f)
 
-def load_data():
-    if os.path.exists(DATA_FILE):
-        with open(DATA_FILE, "r") as f:
-            return json.load(f)
-    return {}
+@app.route("/validate", methods=["GET"])
+def validate():
+    code = request.args.get("code")
+    user_id = request.args.get("user_id")
 
-def save_data(data):
-    with open(DATA_FILE, "w") as f:
-        json.dump(data, f, indent=4)
+    if not code:
+        return jsonify({"valid": False, "error": "Code missing"}), 400
 
-@app.route("/check", methods=["GET"])
-def check_file():
-    filename = request.args.get("file")
-    data = load_data()
+    codes = load_codes()
+    if code not in codes:
+        return jsonify({"valid": False, "error": "Invalid code"}), 404
 
-    if filename not in data:
-        return jsonify({"status": "error", "message": "File not found"}), 404
+    entry = codes[code]
 
-    expiry_str = data[filename]["expiry"]
-    expiry_date = datetime.strptime(expiry_str, "%Y-%m-%d")
+    # Expiry check
+    try:
+        expiry = datetime.strptime(entry["expiry"], "%Y-%m-%d")
+    except Exception:
+        return jsonify({"valid": False, "error": "Invalid expiry date format"}), 400
 
-    if datetime.now() > expiry_date:
-        return jsonify({"status": "expired"})
-    else:
-        return jsonify({"status": "valid"})
+    if datetime.now() > expiry:
+        return jsonify({"valid": False, "error": f"Code expired on {entry['expiry']}"}), 403
 
-@app.route("/add", methods=["POST"])
-def add_file():
-    req_data = request.json
-    filename = req_data["file"]
-    expiry = req_data["expiry"]
+    # User check
+    if entry["user_id"] != "all" and entry["user_id"] != user_id:
+        return jsonify({"valid": False, "error": "Not allowed for this user"}), 403
 
-    data = load_data()
-    data[filename] = {"expiry": expiry}
-    save_data(data)
-
-    return jsonify({"status": "success", "message": "File added"})
+    return jsonify({"valid": True}), 200
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
